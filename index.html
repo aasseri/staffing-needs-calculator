@@ -373,8 +373,6 @@ function placedMap(){
     ls.forEach(l=>{if(l.id&&!PL.has(l.id))PL.set(l.id,{p,n:cnt(l)})})});
 }
 const render=f=>{placedMap();renderTree();renderLines(f);renderPlaces()};
-/* عند فتح مشروع أو تحميل الهيكل: تُفتح الجهات الرئيسية التي فيها جهات مُسكّنة لتظهر مباشرة */
-const openPlaced=()=>{if(!PL.size)return;PL.forEach((v,id)=>open.add(rootOf.get(id)));renderTree()};
 const touch=()=>{dirty=true};
 
 function addUnit(id){
@@ -487,7 +485,7 @@ function openText(t,h){
   const raw=Array.isArray(d.places)?d.places:[{title:d.main||d.name||'تسكين 1',hours:d.hours,lines:d.lines}];
   guard(()=>{
     S.places=raw.map((p,i)=>({pid:newP(),title:String(p.title||`تسكين ${i+1}`),hours:+p.hours||0,notes:String(p.notes||''),lines:lines(p.lines)}));
-    S.name=String(d.name||'');$('#pname').value=S.name;FH=h||null;setWork(null);openPlaced();
+    S.name=String(d.name||'');$('#pname').value=S.name;FH=h||null;setWork(null);
     toast(`فُتح مشروع «${S.name||'بدون اسم'}»: ${fmt(S.places.length)} تسكين — اختر التسكين من القائمة`+(S.units.length?'':'، وحمّل ملف الهيكل والبيانات'));
   });
 }
@@ -722,7 +720,7 @@ $('#file').addEventListener('change',e=>{const f=e.target.files[0];e.target.valu
     if(es){const c=countStaff(es.rows,es.ec,units);cur=c.cur;EMP=c.emp;
       msg+=` · الموظفون: ${fmt(c.r.ok)} من ${fmt(c.r.all)}`+(c.r.miss?` — ${fmt(c.r.miss)} جهتهم غير موجودة في الهيكل`:'')+(c.r.amb?` — ${fmt(c.r.amb)} جهتهم مكررة الاسم`:'')}
     /* جهات المشروع المفتوح تبقى، وتُربط بالهيكل الجديد فتتحدّث أعداد الموظفين الفعلية تلقائيًا */
-    S.units=units;S.cur=cur;index();const miss=resolve();render();openPlaced();
+    S.units=units;S.cur=cur;index();const miss=resolve();render();
     toast(msg+(S.lines.length?` · التسكين المفتوح: ${fmt(S.lines.length-miss)} جهة مرتبطة`+(miss?`، ${fmt(miss)} غير موجودة في الهيكل`:''):''));
   }).catch(()=>toast('تعذرت قراءة الملف'));
 });
