@@ -1,0 +1,687 @@
+<!doctype html>
+<!-- حاسبة الاحتياج الوظيفي — إعداد وتطوير: AHMAD ZYAD -->
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="AHMAD ZYAD">
+<title>حاسبة الاحتياج الوظيفي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Amiri:wght@400;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+/* تخطيط: شاشة واحدة. يمين = الهيكل التنظيمي، يسار = شاشة الطلب: لكل جهة أزرار (مدير/رئيس قسم/موظف)، وفي الأسفل الاحتياج وفق الهيكل وخانة عامة لعبء العمل السنوي، ثم زر الاعتماد. النموذج المعتمد: خطاب رسمي أبيض وأسود */
+:root{
+  --navy:#14294a; --navy-2:#22426f; --navy-soft:#e9eef6;
+  --gold:#b08a3e; --gold-soft:#f6efe0;
+  --bg:#eef1f6; --surface:#fff; --ink:#172031; --muted:#5d6a7e; --line:#dce2eb; --soft:#f6f8fb;
+  --font:'Tajawal',"Segoe UI",Tahoma,Arial,sans-serif;
+  --formal:"Sakkal Majalla","Traditional Arabic",'Amiri',"Times New Roman",serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55;display:flex;flex-direction:column}
+button,input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+[hidden]{display:none!important}
+
+.top{background:var(--navy);color:#fff;border-bottom:3px solid var(--gold);padding:12px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}
+.top h1{margin:0;font-size:19px;font-weight:800}
+.top small{color:#c5d0e2;font-size:12.5px;display:block}
+
+.app{flex:1;min-height:0;display:grid;grid-template-columns:minmax(280px,2fr) minmax(0,3fr);gap:14px;padding:14px max(16px,env(safe-area-inset-left,0px))}
+@media (max-width:820px){.app{grid-template-columns:minmax(0,1fr)}body{height:auto}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.ph{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ph h2{margin:0;font-size:16px;color:var(--navy);font-weight:800}
+.ph span{color:var(--muted);font-size:13px}
+.ph .rel{color:var(--navy-2);font-size:13px;cursor:pointer;text-decoration:underline;margin-inline-start:8px}
+.pact{display:flex;align-items:center;gap:6px}
+.pb{border:1px solid var(--navy-2);background:var(--surface);color:var(--navy);border-radius:8px;padding:4px 14px;font-size:13.5px;font-weight:700;cursor:pointer}
+.pb:hover:not(:disabled){background:var(--navy);color:#fff}
+.pb:disabled{opacity:.4;cursor:not-allowed}
+
+/* الهيكل */
+.search{margin:10px 14px 6px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);width:calc(100% - 28px)}
+.tree{overflow:auto;flex:1;padding:4px 8px 12px}
+@media (max-width:820px){.tree{max-height:46vh}}
+.u{display:flex;align-items:center;gap:8px;width:100%;text-align:right;border:0;background:transparent;padding:8px 10px;padding-inline-start:calc(10px + var(--d) * 20px);border-radius:8px;cursor:pointer}
+.u:hover{background:var(--navy-soft)}
+.u .dot{width:7px;height:7px;border-radius:50%;background:#b9c3d3;flex:none}
+.u[data-d="0"] .dot{background:var(--navy);width:9px;height:9px}
+.u .nm{flex:1;min-width:0}
+.u[data-d="0"] .nm{font-weight:800;color:var(--navy)}
+.u .pth{display:block;font-size:12px;color:var(--muted)}
+.ur{display:flex;align-items:center;gap:2px;border-top:1px solid var(--line);margin-top:2px;padding-top:2px}
+.ur:first-child{border-top:0;margin-top:0}
+.ur .u{flex:1;min-width:0;padding-inline-start:4px}
+.tg{display:flex;align-items:center;gap:4px;flex:none;border:0;background:transparent;color:var(--muted);border-radius:8px;padding:6px 8px;cursor:pointer;font-size:12px}
+.tg:hover{background:var(--navy-soft);color:var(--navy)}
+.tg .ch{display:inline-block;font-size:20px;line-height:1;color:var(--navy);transition:transform .15s}
+.ur.open .tg .ch{transform:rotate(-90deg)}
+.u .badge{background:var(--gold);color:#1c1406;font-weight:700;font-size:12px;border-radius:999px;padding:0 9px;white-space:nowrap}
+.u.in{background:var(--gold-soft)}
+.none{color:var(--muted);text-align:center;padding:30px 10px}
+.start{display:grid;gap:10px;justify-items:center;text-align:center;color:var(--muted);padding:48px 16px}
+.start b{color:var(--navy);font-size:16px}
+.start .go{padding:11px 22px;font-size:15px}
+.pnm{padding:8px 14px;border-bottom:1px solid var(--line)}
+.pnm{display:grid;gap:6px}
+.plc{display:flex;align-items:center;gap:8px}
+.plc select{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);font:inherit;color:var(--ink)}
+.plc .pb{white-space:nowrap;padding:5px 12px}
+.pnm input{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 12px;background:var(--soft);font-weight:700;color:var(--navy)}
+.uc.miss{background:#fbf3f2}
+.uc.miss em{display:block;font-style:normal;font-size:12px;font-weight:700;color:#a63434}
+
+/* شاشة الطلب */
+.lines{flex:1;overflow:auto}
+.uc{border-bottom:1px solid var(--line);padding:12px 14px;display:grid;gap:8px}
+.uc.flash{animation:fl 1s}
+@keyframes fl{from{background:var(--gold-soft)}to{background:transparent}}
+.uh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.uh b{display:block;font-weight:800;color:var(--navy)}
+.uh small{color:var(--muted);font-size:12px}
+.del{border:0;background:transparent;color:#8d97a8;font-size:20px;line-height:1;cursor:pointer;border-radius:6px;width:30px;height:30px;flex:none}
+.del:hover{background:#f6e3e2;color:#a63434}
+.adds{display:flex;flex-wrap:wrap;gap:6px}
+.add{border:1px solid var(--navy-2);background:var(--surface);color:var(--navy);border-radius:999px;padding:4px 14px;font-weight:700;font-size:13.5px;cursor:pointer}
+.add:hover{background:var(--navy);color:#fff}
+.items{display:grid;gap:4px}
+.it{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--soft);border-radius:8px;padding:6px 10px}
+.it>span{font-weight:500}
+.qty{display:flex;align-items:center;gap:2px}
+.qty button{width:30px;height:30px;border:1px solid var(--line);background:var(--surface);border-radius:8px;font-weight:800;cursor:pointer}
+.qty button:hover{border-color:var(--navy-2)}
+.qty b{min-width:36px;text-align:center;font-size:16px}
+.empty{flex:1;display:grid;place-content:center;text-align:center;gap:6px;color:var(--muted);padding:40px 16px}
+.empty b{color:var(--navy);font-size:16px}
+
+/* المنطقة السفلية مضغوطة لتتسع قائمة التسكين: الصندوقان والملاحظات في صف واحد */
+.tot{border-top:3px double var(--navy);background:var(--soft);padding:8px 14px 10px;display:grid;gap:8px;flex:none}
+.boxes{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px}
+@media (max-width:1100px){.boxes{grid-template-columns:1fr 1fr}.bx.nt{grid-column:1/-1}}
+@media (max-width:440px){.boxes{grid-template-columns:1fr}}
+.bx{border-radius:10px;padding:6px 12px;display:grid;gap:2px;min-width:0;align-content:start}
+.bx>span{font-weight:700;font-size:13px}
+.bx b{font-size:22px;line-height:1.15}
+.bx small{font-size:11.5px;overflow-wrap:anywhere}
+.bx.s{background:var(--navy);color:#fff}.bx.s b{color:#f0d9a6}.bx.s small{color:#c9d3e3}
+.bx.w{background:var(--surface);border:1px solid #dcc9a0}.bx.w b{color:var(--navy)}.bx.w small{color:var(--muted)}
+.wrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bx.nt{background:var(--surface);border:1px solid var(--line);padding:6px 10px;grid-template-rows:auto 1fr}
+.bx.nt label{font-weight:700;font-size:13px}
+.bx.nt label small{color:var(--muted);font-weight:500}
+.bx.nt textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:14px;resize:vertical;min-height:38px;height:100%;background:var(--soft)}
+.bx.w input{width:100%;max-width:150px;border:1px solid #cdbb94;border-radius:8px;padding:3px 8px;text-align:center;font-weight:700;font-size:15px;background:var(--surface)}
+.bx.w .wrow span{white-space:nowrap}
+.bx.w .wrow input{max-width:110px;min-width:64px;flex:1 1 90px}
+.go{border:0;background:var(--gold);color:#1c1406;font-weight:800;font-size:16px;padding:9px;border-radius:10px;cursor:pointer}
+.go:hover:not(:disabled){background:#c39a48}
+.go:disabled{opacity:.45;cursor:not-allowed}
+
+/* النموذج الرسمي */
+.ov{position:fixed;inset:0;background:rgba(20,24,32,.6);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:24px 16px;z-index:20}
+.sheet-wrap{width:100%;max-width:820px;display:grid;gap:10px}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.tools button{border:0;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;background:#fff;color:var(--navy)}
+.tools .p{background:var(--gold);color:#1c1406}
+@media screen{.sheet-wrap:has(.docR){max-width:1120px}}
+.tools select.opt{border:0;font:inherit;font-weight:700;max-width:100%}
+.dtitle .dsub{font-size:.85em;margin-top:4px;text-align:right}
+.tools .opt{display:flex;align-items:center;gap:6px;background:#fff;color:var(--navy);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
+.docR table.t tr.rm td{background:#f4f4f4}
+.docR table.t tr.rs td{font-size:.92em}
+.docR table.t tr.rs td.n{padding-inline-start:26px}
+.docR table.t tr.rs small{font-size:.85em}
+.docR table.t td.nt{text-align:right;font-size:.9em;min-width:140px;overflow-wrap:anywhere}
+.doc{background:#fff;color:#000;font-family:var(--formal);font-size:18px;line-height:1.6;padding:34px 44px 28px;box-shadow:0 4px 24px rgba(0,0,0,.25);display:grid;gap:14px}
+@media (max-width:600px){.doc{padding:22px 16px;font-size:16px}}
+.lh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:3px double #000;padding-bottom:10px}
+@media (max-width:600px){.lh{grid-template-columns:1fr}}
+.lh .r{font-weight:700;line-height:1.45;font-size:16.5px}
+.lh .c{text-align:center}
+.lh .c .logo{display:block;margin:0 auto;height:84px;width:auto}
+.lh .l{justify-self:end;font-size:16px;line-height:1.7}
+.lh .l td{padding:0 6px}
+.lh .l td:first-child{font-weight:700}
+.dtitle{text-align:center;margin:6px 0 0}
+.dtitle h3{margin:0;font-size:24px;font-weight:700;display:inline-block;border-bottom:1.5px solid #000;padding:0 18px 2px}
+.doc p{margin:0;text-align:justify}
+.doc h4{margin:4px 0 0;font-size:19px;font-weight:700}
+.doc table.t{width:100%;border-collapse:collapse;font-size:17px}
+.doc table.t th,.doc table.t td{border:1px solid #000;padding:4px 8px;text-align:center}
+.doc table.t th{background:#e6e6e6;font-weight:700}
+.doc table.t td.n{text-align:right}
+.doc table.t tfoot td{font-weight:700;background:#f2f2f2}
+.doc table.t td.gp{color:#1e7a3c;font-weight:700}
+.doc table.t td.gn{color:#b42318;font-weight:700}
+.tw{overflow-x:auto;min-width:0}
+.doc2 table.t{font-size:15px}
+.doc2 table.t th,.doc2 table.t td{padding:3px 6px}
+@media (max-width:600px){.doc table.t{font-size:13.5px}.doc table.t th,.doc table.t td{padding:3px 3px}}
+.pgw{width:100%;border-collapse:collapse}
+.pgw>*>tr>td{padding:0}
+.pgw>thead>tr>td{padding-bottom:14px}
+.pgc{display:grid;gap:14px;min-width:0}
+.dnote{font-size:16px;margin-top:16px}
+.doc p.pnote{white-space:normal;overflow-wrap:anywhere}
+.dfoot{border-top:1px solid #000;padding-top:6px;font-size:13px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-family:var(--font)}
+
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:9px 16px;border-radius:10px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:30;max-width:calc(100% - 32px)}
+.toast.show{opacity:1}
+.ask{border:0;border-top:4px solid var(--gold);border-radius:12px;padding:18px 20px;max-width:min(420px,calc(100% - 32px));box-shadow:0 8px 32px rgba(0,0,0,.3);color:var(--ink)}
+.ask::backdrop{background:rgba(20,24,32,.5)}
+.ask b{color:var(--navy);font-size:17px}
+.ask p{margin:8px 0 16px}
+.ask div{display:flex;gap:8px}
+.ask button{flex:1;padding:9px;font-size:15px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+@media print{
+  /* @page (A4 بهامش 0) في <style id="paper"> عبر setPaper() */
+  html,body{height:auto}
+  body{display:block;background:#fff}
+  .top,.app,.tools,.toast,.ask{display:none!important}
+  .ov{position:static;background:none;padding:0;display:block}
+  /* block لا grid: فراغ gap بين الورقتين كان يتجاوز طول الصفحة فيطبع صفحة فارغة */
+  .sheet-wrap{max-width:none;display:block}
+  /* صفحات موحّدة: الترويسة تتكرر أعلى كل صفحة (thead)، والتذييل ثابت أسفل كل صفحة (fixed)، و.fsp يحجز مكانه */
+  .doc{display:block;min-height:0;box-shadow:none;padding:0 15mm;font-size:15.5px;line-height:1.45}
+  .pgw>thead>tr>td{padding-top:12mm;padding-bottom:9px}
+  .pgc{gap:9px}
+  .fsp{height:16mm}
+  .dfoot{position:fixed;left:15mm;right:15mm;bottom:8mm;background:#fff}
+  .doc2 .dfoot{display:none}
+  .doc table.t{font-size:14.5px}
+  .doc table.t th,.doc table.t td{padding:2px 6px}
+  .doc h4{font-size:16.5px;margin:0}
+  .dtitle h3{font-size:21px}
+  .lh .r,.lh .l{font-size:14.5px}
+  .lh .c .logo{height:74px}
+  .dnote{margin-top:10px}
+  /* ورقة الموظفين تبدأ صفحة جديدة، وتمتد لعدة صفحات بالترويسة والتذييل نفسيهما */
+  .doc2{page-break-before:always;break-before:page}
+  .doc2 .tw{overflow:visible}
+  .doc2 table.t{font-size:12.5px}
+  table.t tr{page-break-inside:avoid;break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+<!-- اتجاه ورقة الطباعة: تضبطه setPaper() حسب المعروض (التقرير بالعرض، والنموذج بالطول). لا صفحات مسمّاة (@page name)، فهي تُنتج صفحات فارغة عند تبديل الاتجاه -->
+<style id="paper">@media print{@page{size:A4 portrait;margin:0}}</style>
+</head>
+<body>
+<header class="top">
+  <div><h1>حاسبة الاحتياج الوظيفي</h1><small>الإدارة العامة للموارد البشرية — إدارة تخطيط الموارد البشرية</small></div>
+</header>
+<input type="file" id="file" accept=".xlsx,.xls,.csv" hidden>
+
+<div class="app">
+  <section class="panel">
+    <div class="ph"><h2>الهيكل التنظيمي</h2><span><span id="uCount" class="num"></span> <label for="file" class="rel" id="reload" hidden>تحديث الملف</label></span></div>
+    <input class="search" id="q" type="search" placeholder="بحث عن جهة…" aria-label="بحث عن جهة">
+    <div class="tree" id="tree"></div>
+  </section>
+
+  <section class="panel">
+    <div class="ph"><h2>الاحتياج</h2><div class="pact"><button class="pb" id="saveBtn" disabled>حفظ الجهة</button><button class="pb" id="repBtn" disabled>التقارير</button><label class="pb" id="openLbl">فتح مشروع<input type="file" id="loadFile" accept=".json,application/json" hidden></label></div></div>
+    <div class="pnm"><input id="pname" type="text" placeholder="اسم مشروع التسكين" aria-label="اسم مشروع التسكين" maxlength="80">
+      <div class="plc"><select id="place" aria-label="تسكينات المشروع"></select><button class="pb" id="newPlace" hidden>تسكين جديد</button></div></div>
+    <div class="lines" id="lines"></div>
+    <div class="tot">
+      <div class="boxes">
+        <div class="bx s"><span>الاحتياج وفق الهيكل</span><b class="num" id="sN">0</b><small class="num" id="sD">—</small></div>
+        <div class="bx w"><div class="wrow"><span>عبء العمل السنوي</span><input class="num" type="text" inputmode="decimal" autocomplete="off" id="hours" placeholder="الساعات" aria-label="إجمالي ساعات عبء العمل السنوية"></div><b class="num" id="wN">0</b><small class="num" id="wD">أدخل الساعات ÷ 1,023</small></div>
+      <div class="bx nt"><label for="notes">ملاحظات <small>(اختياري)</small></label><textarea id="notes" rows="2" maxlength="1000" placeholder="ملاحظات على هذا التسكين…"></textarea></div>
+      </div>
+      <button class="go" id="approve" disabled>اعتماد الاحتياج</button>
+    </div>
+  </section>
+</div>
+
+<div class="ov" id="ov" hidden></div>
+<dialog class="ask" id="ask"><b>تنبيه</b><p id="askT"></p><div><button type="button" value="yes" class="go">نعم</button><button type="button" value="no" class="pb">لا</button></div></dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* حاسبة الاحتياج الوظيفي — إعداد وتطوير: AHMAD ZYAD */
+const HOURS=1023, KEY='kku-needs-pos-v4';
+const ORG='جامعة الملك خالد', GD='الإدارة العامة للموارد البشرية', DEPT='إدارة تخطيط الموارد البشرية';
+const ROLES=[['mgr','مدير'],['head','رئيس قسم'],['emp','موظف']];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2});
+const fmt2=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const need=h=>h>0?Math.ceil(h/HOURS-1e-9):0;
+const cnt=l=>(l.mgr||0)+(l.head||0)+(l.emp||0);
+
+/* لا يُحفظ شيء في المتصفح: الهيكل والموظفون يُستوردان من Excel عند كل فتح، والعمل يُحفظ في ملف مشروع تسكين */
+try{['kku-needs-pos-v3',KEY,KEY+'-emp'].forEach(k=>localStorage.removeItem(k))}catch(e){}  /* تنظيف بيانات الإصدارات السابقة */
+/* lines: {k, path:[أسماء الجهات من الجذر], id: معرف الجهة في الهيكل الحالي أو null إن لم توجد, mgr, head, emp} */
+/* المشروع = اسم + تسكينات محفوظة places:[{pid,title,hours,notes,lines:[{path,mgr,head,emp}]}]. منطقة العمل (lines, hours, notes) هي التسكين المفتوح؛ pid = التسكين المحفوظ المفتوح أو null لتسكين جديد */
+let S={units:[],lines:[],hours:0,notes:'',name:'',cur:null,places:[],pid:null};  /* cur = عدد الموظفين الحاليين لكل جهة {id:n}، أو null إن لم تُحمَّل ورقة موظفين */
+let dirty=false;  /* تغييرات في منطقة العمل لم تُحفظ في المشروع */
+let EMP=null;  /* صفوف ورقة الموظفين {cols,rows:[{u,v}]}: في الذاكرة فقط */
+let seq=0;const newK=()=>'L'+(++seq);
+
+let byId,kids,order,depth,rootOf,size;
+const open=new Set();  /* الجهات الرئيسية المفتوحة في الشجرة؛ تبدأ كلها مطوية */
+function index(){
+  byId=new Map(S.units.map(u=>[u.id,u]));kids=new Map();order=[];depth=new Map();rootOf=new Map();size=new Map();
+  const roots=[];S.units.forEach(u=>{if(u.parentId&&u.parentId!==u.id&&byId.has(u.parentId)){if(!kids.has(u.parentId))kids.set(u.parentId,[]);kids.get(u.parentId).push(u.id)}else roots.push(u.id)});
+  const seen=new Set(),walk=(id,d,r)=>{if(seen.has(id))return;seen.add(id);depth.set(id,d);rootOf.set(id,r);size.set(r,(size.get(r)||0)+1);order.push(id);(kids.get(id)||[]).forEach(k=>walk(k,d+1,r))};
+  roots.forEach(r=>walk(r,0,r));
+  [...open].forEach(id=>{if(!byId.has(id)||depth.get(id))open.delete(id)});
+}
+const chain=id=>{const out=[],s=new Set();let u=byId.get(id);while(u&&!s.has(u.id)){s.add(u.id);out.unshift(u.id);u=byId.get(u.parentId)}return out};
+const pathOf=id=>chain(id).map(i=>byId.get(i).name);
+const parentName=id=>{const p=byId.get(byId.get(id)?.parentId);return p?p.name:'—'};
+const line=id=>S.lines.find(l=>l.id===id);
+const lineK=k=>S.lines.find(l=>l.k===k);
+const nm=l=>l.id?byId.get(l.id).name:l.path[l.path.length-1];
+const pn=l=>l.id?parentName(l.id):(l.path[l.path.length-2]||'—');
+/* ربط جهات المشروع بالهيكل الحالي: بالاسم والتبعية (المسار كاملًا)، وإلا بالاسم وحده إن كان فريدًا، وإلا تبقى غير موجودة */
+function link(lines){
+  const pk=new Map(),nk=new Map(),used=new Set(),key=p=>p.map(un).join('›');
+  order.forEach(id=>{const k=key(pathOf(id));pk.set(k,pk.has(k)?null:id);const n=un(byId.get(id).name);nk.set(n,nk.has(n)?null:id)});
+  lines.forEach(l=>{let id=pk.get(key(l.path));if(!id)id=nk.get(un(l.path[l.path.length-1]));
+    if(id&&!used.has(id)){used.add(id);l.id=id;l.path=pathOf(id)}else l.id=null});
+  return lines.filter(l=>!l.id).length;
+}
+const resolve=()=>link(S.lines);
+function mainUnit(ids){
+  if(!ids.length)return null;
+  let common=chain(ids[0]);ids.slice(1).forEach(id=>{const c=chain(id);let i=0;while(i<common.length&&common[i]===c[i])i++;common=common.slice(0,i)});
+  return common.length?common[common.length-1]:null;
+}
+const mainOf=L=>mainUnit(L.filter(l=>l.id).map(l=>l.id));
+function ordered(){const pos=new Map(order.map((id,i)=>[id,i]));return [...S.lines].sort((a,b)=>(a.id?pos.get(a.id):1e9)-(b.id?pos.get(b.id):1e9))}
+function sums(){const s={mgr:0,head:0,emp:0};S.lines.forEach(l=>ROLES.forEach(([k])=>s[k]+=l[k]||0));s.n=s.mgr+s.head+s.emp;s.h=+S.hours||0;return s}
+
+function renderTree(){
+  $('#uCount').textContent=S.units.length?fmt(S.units.length)+' جهة':'';
+  $('#q').hidden=$('#reload').hidden=!S.units.length;  /* قبل التحميل زر البداية وحده، وبعده رابط «تحديث الملف» لإعادة الاستيراد */
+  if(!S.units.length){$('#tree').innerHTML='<div class="start"><b>لم يُحمَّل الهيكل التنظيمي</b><span>حمّل ملف Excel الذي يحتوي ورقة الهيكل وورقة بيانات الموظفين.</span><label for="file" class="go">تحميل ملف الهيكل والبيانات</label></div>';return}
+  const q=$('#q').value.trim();
+  /* البحث يعرض كل النتائج دون طي؛ وبدونه تظهر الجهات الرئيسية، وتحت المفتوحة منها جهاتها */
+  const ids=q?order.filter(id=>byId.get(id).name.includes(q)):order.filter(id=>!depth.get(id)||open.has(rootOf.get(id)));
+  $('#tree').innerHTML=ids.length?ids.map(id=>{const u=byId.get(id),d=q?0:depth.get(id),l=line(id);
+    const b=`<button class="u${l?' in':''}" data-id="${esc(id)}" data-d="${d}" style="--d:${d}"><span class="dot"></span><span class="nm">${esc(u.name)}${q&&u.parentId?`<span class="pth">${esc(parentName(id))}</span>`:''}</span>${l?`<span class="badge num">${cnt(l)?fmt(cnt(l)):'✓'}</span>`:''}</button>`;
+    if(q||d||!kids.has(id))return b;
+    const o=open.has(id);
+    return `<div class="ur${o?' open':''}"><button class="tg" data-t="${esc(id)}" aria-expanded="${o}" aria-label="${o?'طي':'عرض'} جهات ${esc(u.name)}"><span class="ch">‹</span><span class="num">${fmt(size.get(id)-1)}</span></button>${b}</div>`}).join(''):'<p class="none">لا توجد جهة بهذا الاسم.</p>';
+}
+function renderLines(flashK){
+  const L=ordered();
+  $('#lines').innerHTML=L.length?L.map(l=>{const k=esc(l.k);return `<div class="uc${l.k===flashK?' flash':''}${l.id?'':' miss'}" id="c-${k}">
+    <div class="uh"><div><b>${esc(nm(l))}</b><small>تتبع: ${esc(pn(l))}</small>${l.id?'':`<em>${S.units.length?'غير موجودة في الهيكل الحالي':'بانتظار تحميل ملف الهيكل والبيانات'}</em>`}</div><button class="del" data-a="del" data-k="${k}" aria-label="إزالة الجهة">×</button></div>
+    <div class="adds">${ROLES.map(([r,t])=>`<button class="add" data-a="inc" data-r="${r}" data-k="${k}">+ ${t}</button>`).join('')}</div>
+    ${cnt(l)?`<div class="items">${ROLES.filter(([r])=>l[r]).map(([r,t])=>`<div class="it"><span>${t}</span><div class="qty"><button data-a="inc" data-r="${r}" data-k="${k}" aria-label="زيادة ${t}">+</button><b class="num">${l[r]}</b><button data-a="dec" data-r="${r}" data-k="${k}" aria-label="إنقاص ${t}">−</button></div></div>`).join('')}</div>`:''}
+  </div>`}).join('')
+  :'<div class="empty"><b>لم تُختر أي جهة</b><span>اضغط على الجهة من الهيكل التنظيمي، ثم أضف مدير أو رئيس قسم أو موظف.</span></div>';
+  totals();
+}
+function totals(){
+  const s=sums();
+  $('#sN').textContent=fmt(s.n);
+  $('#sD').textContent=s.n?ROLES.filter(([k])=>s[k]).map(([k,t])=>`${t} ${s[k]}`).join(' · '):'—';
+  $('#wN').textContent=fmt(need(s.h));
+  $('#wD').textContent=s.h?`${fmt(s.h)} ÷ 1,023 = ${fmt2(s.h/HOURS)}`:'أدخل الساعات ÷ 1,023';
+  $('#approve').disabled=!(S.lines.length||s.h>0);
+  $('#saveBtn').disabled=!(S.lines.length||s.h>0);
+  $('#newPlace').hidden=!(S.pid||S.lines.length||s.h||S.notes);
+}
+function renderPlaces(){
+  $('#place').innerHTML=`<option value="">${S.places.length?`تسكين جديد — المحفوظ في المشروع: ${S.places.length}`:'تسكين جديد'}</option>`+
+    S.places.map(p=>`<option value="${p.pid}"${p.pid===S.pid?' selected':''}>${esc(p.title)} — ${fmt(p.lines.length)} جهة${p.hours?` · ${fmt(p.hours)} ساعة`:''}</option>`).join('');
+  $('#repBtn').disabled=!S.places.length;
+}
+const render=f=>{renderTree();renderLines(f);renderPlaces()};
+const touch=()=>{dirty=true};
+
+function addUnit(id){
+  open.add(rootOf.get(id));  /* تُفتح جهتها الرئيسية لتبقى الجهة المختارة ظاهرة بعد مسح البحث */
+  let l=line(id);if(!l){l={k:newK(),path:pathOf(id),id,mgr:0,head:0,emp:0};S.lines.push(l);touch()}
+  render(l.k);document.getElementById('c-'+l.k)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+/* نافذة التأكيد #ask: نص + إجراء عند «نعم» + إجراء اختياري عند «لا» أو Esc */
+let askYes=null,askNo=null;
+function ask(text,yes,no){$('#askT').textContent=text;askYes=yes;askNo=no||null;$('#ask').showModal()}
+function answer(y){const f=y?askYes:askNo;askYes=askNo=null;if(f)f()}
+$('#ask').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('#ask').close();answer(b.value==='yes')});
+$('#ask').addEventListener('cancel',()=>answer(false));
+/* جهة بلا موظفين حاليين (عند تحميل ورقة موظفين): تأكيد قبل إدراجها */
+$('#tree').addEventListener('click',e=>{const t=e.target.closest('.tg');
+  if(t){const r=t.dataset.t;open.has(r)?open.delete(r):open.add(r);return renderTree()}
+  const b=e.target.closest('.u');if(!b)return;const id=b.dataset.id;
+  if(line(id)||!S.cur||S.cur[id])return addUnit(id);
+  ask(`«${byId.get(id).name}» لا يوجد بها موظفون حاليون. هل تريد إدراجها ضمن الاحتياج؟`,()=>addUnit(id))});
+$('#lines').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const l=lineK(b.dataset.k),a=b.dataset.a,r=b.dataset.r;
+  if(a==='del')S.lines=S.lines.filter(x=>x!==l);
+  else if(a==='inc')l[r]=(l[r]||0)+1;
+  else if(a==='dec')l[r]=Math.max(0,(l[r]||0)-1);
+  touch();render()});
+/* خانة الساعات نصية لا type=number: المتصفح يعرض خانة الأرقام بأرقام لغة النظام (٠-٩)، والمعتمد الأرقام اللاتينية.
+   تُحوَّل الأرقام العربية والفارسية إلى لاتينية، ويُقبل رقم موجب بفاصلة عشرية واحدة */
+const latin=s=>String(s).replace(/[٠-٩]/g,d=>d.charCodeAt(0)-1632).replace(/[۰-۹]/g,d=>d.charCodeAt(0)-1776).replace(/[٫,]/g,'.');
+$('#hours').addEventListener('input',e=>{const t=e.target,v=latin(t.value).replace(/[^\d.]/g,'').replace(/(\..*)\./g,'$1');
+  if(v!==t.value)t.value=v;S.hours=parseFloat(v)||0;touch();totals()});
+$('#notes').addEventListener('input',e=>{S.notes=e.target.value;touch();totals()});
+$('#pname').addEventListener('input',e=>{S.name=e.target.value.trim()});
+$('#q').addEventListener('input',renderTree);
+
+/* منطقة العمل: تفريغها أو تحميل تسكين محفوظ فيها */
+function setWork(p){
+  S.pid=p?p.pid:null;S.hours=p?p.hours:0;S.notes=p?p.notes||'':'';$('#notes').value=S.notes;
+  S.lines=p?p.lines.map(l=>({k:newK(),path:[...l.path],id:null,mgr:l.mgr,head:l.head,emp:l.emp})):[];
+  $('#hours').value=S.hours||'';dirty=false;
+  const miss=S.units.length?resolve():0;render();return miss;
+}
+/* أي إجراء يستبدل منطقة العمل يسأل أولًا إن كان فيها تغييرات غير محفوظة */
+const guard=go=>dirty?ask('في التسكين الحالي تغييرات لم تُحفظ في المشروع. هل تريد تجاهلها؟',go):go();
+$('#place').addEventListener('change',e=>{const v=e.target.value,p=S.places.find(x=>x.pid===v)||null;
+  renderPlaces();  /* تبقى القائمة على التسكين المفتوح إن أُلغي التبديل */
+  guard(()=>{const miss=setWork(p);if(p)toast(`فُتح تسكين «${p.title}»`+(miss?` — ${fmt(miss)} جهة غير موجودة في الهيكل الحالي`:''))})});
+/* «تسكين جديد»: يهيّئ الشاشة لجهة جديدة (يُغلق التسكين المفتوح دون حذفه من المشروع) */
+$('#newPlace').addEventListener('click',()=>guard(()=>{setWork(null);$('#q').value='';open.clear();renderTree();toast('تسكين جديد: اختر الجهات من الهيكل التنظيمي')}));
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+
+/* مشروع التسكين: ملف JSON يحمل التسكينات فقط (لا هيكل ولا موظفين)، والجهات بمساراتها لتُربط بالهيكل عند الفتح */
+const safe=s=>String(s).replace(/[\\/:*?"<>|]/g,'').trim().slice(0,50);
+let pseq=0;const newP=()=>'P'+(++pseq);
+const fileName=()=>`مشروع-تسكين-${safe(S.name||S.places[0]?.title||'مشروع')}.json`;
+const projectJSON=()=>JSON.stringify({app:'kku-staffing-needs-calc',kind:'project',format:7,name:S.name,savedAt:new Date().toISOString(),savedBy:'AHMAD ZYAD',
+  places:S.places.map(p=>({title:p.title,hours:p.hours,notes:p.notes||'',lines:p.lines}))},null,1);
+/* الحفظ فوق ملف المشروع نفسه (File System Access API في Edge وChrome، ويعمل من file://):
+   FH مقبض الملف: من «فتح مشروع»، أو من نافذة «حفظ باسم» في أول حفظ. بدون الميزة (Firefox) يُنزَّل ملف كما كان */
+const FSA=!!window.showSaveFilePicker;
+let FH=null;
+function download(){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([projectJSON()],{type:'application/json'}));a.download=fileName();
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);
+}
+async function writeFile(){
+  if(!FSA){download();return true}
+  try{
+    if(!FH)FH=await showSaveFilePicker({suggestedName:fileName(),types:[{description:'مشروع تسكين',accept:{'application/json':['.json']}}]});
+    if(await FH.queryPermission({mode:'readwrite'})!=='granted'&&await FH.requestPermission({mode:'readwrite'})!=='granted'){toast('لم يُسمح بتعديل ملف المشروع');return false}
+    const w=await FH.createWritable();await w.write(projectJSON());await w.close();return true;
+  }catch(e){if(e.name!=='AbortError')toast('تعذّر حفظ ملف المشروع: '+e.message);return false}
+}
+/* يكتب المشروع في ملفه، مع تأكيد الاستبدال إن كان الملف معروفًا. done(true|false) */
+function persist(done){
+  if(FSA&&FH)ask(`سيتم استبدال ملف المشروع «${FH.name}» بالنسخة المحدّثة. متابعة؟`,()=>writeFile().then(done),()=>done(false));
+  else writeFile().then(done);
+}
+/* «حفظ الجهة»: يحفظ التسكين المفتوح في المشروع (جديدًا أو فوق المحفوظ نفسه)، ويكتب ملف المشروع، ثم يفرّغ منطقة العمل لتسكين جديد.
+   إن أُلغي الحفظ يعود المشروع كما كان ويبقى التسكين مفتوحًا */
+$('#saveBtn').addEventListener('click',()=>{
+  const m=mainOf(S.lines),L=ordered(),prev=S.places;
+  const title=m?byId.get(m).name:L.length?nm(L[0]):`تسكين ${S.places.length+1}`;
+  const rec={pid:S.pid||newP(),title,hours:+S.hours||0,notes:(S.notes||'').trim(),lines:L.map(l=>({path:l.path,mgr:l.mgr||0,head:l.head||0,emp:l.emp||0}))};
+  S.places=S.places.some(x=>x.pid===rec.pid)?S.places.map(x=>x.pid===rec.pid?rec:x):[...S.places,rec];
+  persist(ok=>{
+    if(!ok){S.places=prev;renderPlaces();return toast('لم يُحفظ — التسكين باقٍ كما هو')}
+    setWork(null);
+    toast(`حُفظ تسكين «${title}» في المشروع (${fmt(S.places.length)} تسكين)`+(FSA?` — الملف «${FH.name}»`:' ونُزّل ملف المشروع'));
+  });
+});
+function openText(t,h){
+  const d=JSON.parse(t);if(d.app!=='kku-staffing-needs-calc'||!(Array.isArray(d.places)||Array.isArray(d.lines)))throw 0;
+  /* الصيغ السابقة: 6 تسكين واحد بمسارات، و4/5 تسكين واحد بمعرّفات مع الهيكل يُستخرج المسار منه */
+  const old=Array.isArray(d.units)?new Map(d.units.map(u=>[String(u.id),u])):new Map();
+  const oldPath=l=>{const out=[],s=new Set();let u=old.get(String(l.id));while(u&&!s.has(u.id)){s.add(u.id);out.unshift(u.name);u=old.get(String(u.parentId))}return out.length?out:[String(l.name||'')]};
+  const lines=a=>(a||[]).map(l=>({path:Array.isArray(l.path)&&l.path.length?l.path.map(String):oldPath(l),mgr:+l.mgr||0,head:+l.head||0,emp:+l.emp||0})).filter(l=>l.path[l.path.length-1]);
+  const raw=Array.isArray(d.places)?d.places:[{title:d.main||d.name||'تسكين 1',hours:d.hours,lines:d.lines}];
+  guard(()=>{
+    S.places=raw.map((p,i)=>({pid:newP(),title:String(p.title||`تسكين ${i+1}`),hours:+p.hours||0,notes:String(p.notes||''),lines:lines(p.lines)}));
+    S.name=String(d.name||'');$('#pname').value=S.name;FH=h||null;setWork(null);
+    toast(`فُتح مشروع «${S.name||'بدون اسم'}»: ${fmt(S.places.length)} تسكين — اختر التسكين من القائمة`+(S.units.length?'':'، وحمّل ملف الهيكل والبيانات'));
+  });
+}
+const bad=()=>toast('الملف ليس مشروع تسكين محفوظًا من هذه الحاسبة');
+$('#loadFile').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  f.text().then(t=>openText(t,null)).catch(bad)});
+/* مع الميزة: «فتح مشروع» يفتح الملف بمقبضه، فيُحفظ فوقه لاحقًا */
+if(window.showOpenFilePicker)$('#openLbl').addEventListener('click',e=>{e.preventDefault();
+  showOpenFilePicker({types:[{description:'مشروع تسكين',accept:{'application/json':['.json']}}]})
+    .then(([h])=>h.getFile().then(f=>f.text()).then(t=>{try{openText(t,h)}catch(x){bad()}}))
+    .catch(x=>{if(x.name!=='AbortError')bad()})});
+
+/* النموذج الرسمي */
+/* التاريخ الهجري (أم القرى) رقميًا والميلادي دون «م»، بترتيب يوم / شهر / سنة قراءةً من اليمين:
+   علامة RLM بعد كل فاصل تمنع اتجاه الأرقام من قلب الترتيب، فيظهر اليوم في أقصى اليمين */
+const dmy=(a,b,c)=>`${a}/\u200F${b}/\u200F${c}`;
+function hijri(d){try{const p=Object.fromEntries(new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn',{day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(d).map(x=>[x.type,x.value]));
+  return dmy(p.day,p.month,parseInt(p.year))+' هـ'}catch(e){return ''}}
+const greg=d=>dmy(String(d.getDate()).padStart(2,'0'),String(d.getMonth()+1).padStart(2,'0'),d.getFullYear());
+const LOGO=`<img class="logo" alt="شعار جامعة الملك خالد" src="data:image/png;base64,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">`;
+/* اتجاه ورقة الطباعة لكل الوثيقة: A4 بالعرض للتقرير وبالطول للنموذج المعتمد، والهامش 0 دائمًا (لمنع رأس وتذييل المتصفح) */
+const setPaper=land=>{$('#paper').textContent=`@media print{@page{size:A4 ${land?'landscape':'portrait'};margin:0}}`};
+/* حالة الاحتياج = العدد الواقعي − الاحتياج وفق عبء العمل: موجب فائض (+، أخضر)، سالب عجز (−، أحمر)، صفر متوازن */
+const gapOf=g=>({n:g,v:g>0?'+'+g:g<0?'−'+(-g):'0',t:g>0?'فائض':g<0?'عجز':'متوازن',c:g>0?'gp':g<0?'gn':''});
+/* صفحات الخطاب الرسمي (النموذج المعتمد والتقارير): كل ورقة جدول خارجي، الترويسة في thead فتتكرر في كل صفحة مطبوعة،
+   وtfoot فراغ يحجز مكان التذييل الثابت أسفل كل صفحة */
+function pager(d){
+  const lh=`<header class="lh">
+      <div class="r">${ORG}<br>${GD}<br>${DEPT}</div>
+      <div class="c">${LOGO}</div>
+      <table class="l num"><tr><td>التاريخ:</td><td>${hijri(d)}</td></tr><tr><td>الموافق:</td><td>${greg(d)}</td></tr></table>
+    </header>`,dfoot=`<footer class="dfoot"><span>${GD} - ${DEPT}</span></footer>`;
+  return (cls,body)=>`<article class="doc ${cls}"><table class="pgw"><thead><tr><td>${lh}</td></tr></thead>
+    <tbody><tr><td><div class="pgc">${body}</div></td></tr></tbody><tfoot><tr><td><div class="fsp"></div></td></tr></tfoot></table>${dfoot}</article>`;
+}
+let F=null;
+$('#approve').addEventListener('click',()=>{
+  const L=ordered(),d=new Date(),s=sums(),m=mainOf(L);
+  F={date:d,main:m?byId.get(m).name:ORG,
+    st:L.map(l=>({name:nm(l),cur:l.id&&S.cur?.[l.id]||0,mgr:l.mgr||0,head:l.head||0,emp:l.emp||0,total:cnt(l)})),
+    s,h:s.h,raw:s.h/HOURS,need:need(s.h),hasC:!!S.cur};
+  F.curN=F.st.reduce((a,r)=>a+r.cur,0);
+  if(F.st.length&&F.hasC&&F.h>0)F.gap=gapOf(F.curN-F.need);
+  /* ورقة بيانات الموظفين: موظفو الجهات المدرجة فقط، بترتيبها في النموذج، وبأعمدة ورقة البيانات
+     عدا عمود الكادر، ويُختصر عنوان عمود الجنس إلى «ذكر / أنثى» */
+  const ek=EMP?EMP.cols.map((c,j)=>hn(c)==='الكادر'?-1:j).filter(j=>j>=0):[];
+  F.ec=EMP&&L.length?ek.map(j=>hn(EMP.cols[j]).startsWith('جنس')?'ذكر / أنثى':EMP.cols[j]):null;
+  F.er=F.ec?L.flatMap(l=>!l.id?[]:EMP.rows.filter(r=>r.u===l.id).map(r=>ek.map(j=>r.v[j]))):[];
+  const hasS=F.st.length>0,hasW=F.h>0;let sec=0;const ord=['أولًا','ثانيًا','ثالثًا','رابعًا'];
+  F.notes=(S.notes||'').trim();  /* الملاحظات اختيارية: قسم «رابعًا» يظهر فقط إن كُتبت */
+  const page=pager(d);
+  $('#ov').innerHTML=`<div class="sheet-wrap"><div class="tools"><button class="p" id="pr">طباعة</button><button id="xl">تصدير Excel</button><button id="cl">إغلاق</button></div>
+  ${page('doc1',`
+    <div class="dtitle"><h3>نموذج اعتماد الاحتياج الوظيفي</h3></div>
+    <p>بناءً على دراسة الاحتياج الوظيفي لـ<b>${esc(F.main)}</b> والجهات التابعة لها، وفق ${hasS&&hasW?'الهيكل التنظيمي وعبء العمل السنوي':hasS?'الهيكل التنظيمي':'عبء العمل السنوي'}، فقد تحدد الاحتياج الوظيفي على النحو الآتي:</p>
+    ${hasS?`<h4>${ord[sec++]}: الاحتياج وفق الهيكل التنظيمي</h4>
+    <table class="t num"><thead><tr><th rowspan="2" style="width:36px">م</th><th rowspan="2">الجهة</th>${F.hasC?'<th rowspan="2">الموظفون الحاليون</th>':''}<th colspan="${ROLES.length+1}">الاحتياج حسب الهيكل</th></tr>
+      <tr>${ROLES.map(([,t])=>`<th>${t}</th>`).join('')}<th>الإجمالي</th></tr></thead>
+      <tbody>${F.st.map((r,i)=>`<tr><td>${i+1}</td><td class="n">${esc(r.name)}</td>${F.hasC?`<td>${r.cur||'-'}</td>`:''}${ROLES.map(([k])=>`<td>${r[k]||'-'}</td>`).join('')}<td><b>${r.total}</b></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="2">الإجمالي</td>${F.hasC?`<td>${F.curN}</td>`:''}${ROLES.map(([k])=>`<td>${s[k]}</td>`).join('')}<td>${s.n}</td></tr></tfoot></table>`:''}
+    ${hasW?`<h4>${ord[sec++]}: الاحتياج وفق عبء العمل السنوي</h4>
+    <table class="t num"><thead><tr><th>إجمالي ساعات عبء العمل السنوية</th><th>الساعات السنوية المتاحة للموظف</th><th>الناتج الحسابي</th><th>الاحتياج (بالتقريب للأعلى)</th></tr></thead>
+      <tbody><tr><td>${fmt(F.h)}</td><td>${fmt(HOURS)}</td><td>${fmt2(F.raw)}</td><td><b>${F.need}</b></td></tr></tbody></table>`:''}
+    <h4>${ord[sec++]}: الخلاصة</h4>
+    <table class="t num"><thead><tr><th>البيان</th><th style="width:30%">العدد</th></tr></thead><tbody>
+      ${hasS&&F.hasC?`<tr><td class="n">العدد الواقعي (الموظفون الحاليون في الجهات المدرجة)</td><td><b>${F.curN}</b> موظف</td></tr>`:''}
+      ${hasS?`<tr><td class="n">الاحتياج الوظيفي وفق الهيكل التنظيمي</td><td><b>${s.n}</b> موظف</td></tr>`:''}
+      ${hasW?`<tr><td class="n">الاحتياج الوظيفي وفق عبء العمل السنوي</td><td><b>${F.need}</b> موظف</td></tr>`:''}
+      ${F.gap?`<tr><td class="n">حالة الاحتياج (العدد الواقعي − الاحتياج وفق عبء العمل)</td><td class="${F.gap.c}"><b>${F.gap.v}</b> ${F.gap.t}</td></tr>`:''}
+    </tbody></table>
+    ${F.notes?`<h4>${ord[sec++]}: ملاحظات</h4><p class="pnote">${esc(F.notes).replace(/\n/g,'<br>')}</p>`:''}`)}
+  ${F.ec?page('doc2',`
+    <div class="dtitle"><h3>بيانات الموظفين الحاليين</h3></div>
+    <p>بيان بالموظفين الحاليين المسجّلين على الجهات الواردة في نموذج اعتماد الاحتياج الوظيفي، وعددهم: <b class="num">${F.er.length}</b>.</p>
+    <div class="tw"><table class="t num"><thead><tr><th style="width:36px">م</th>${F.ec.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+      <tbody>${F.er.length?F.er.map((v,i)=>`<tr><td>${i+1}</td>${F.ec.map((c,j)=>`<td>${esc(v[j])}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${F.ec.length+1}">لا يوجد موظفون مسجّلون على الجهات المختارة</td></tr>`}</tbody></table></div>`):''}</div>`;
+  setPaper(false);$('#ov').hidden=false;
+  $('#pr').onclick=()=>{const t=document.title;document.title=' ';window.print();document.title=t};
+  $('#cl').onclick=()=>{$('#ov').hidden=true};
+  $('#xl').onclick=exportXlsx;
+});
+$('#ov').addEventListener('click',e=>{if(e.target.id==='ov')$('#ov').hidden=true});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#ov').hidden=true});
+
+/* التقرير العام: سطر لكل تسكين محفوظ في المشروع (باسم جهته الأساسية)، ومع «إظهار الجهات التابعة» تُدرج جهاته تحته.
+   العدد الحالي والاحتياج حسب الهيكل لكل جهة، أما ساعات عبء العمل واحتياجها وحالة الاحتياج فللتسكين كاملًا */
+let RS=false;  /* إظهار الجهات التابعة */
+function reportData(){
+  const has=!!S.units.length,hasC=!!S.cur;
+  /* تفصيل العدد الحالي بالجنس من ورقة البيانات: عمود عنوانه يحتوي «جنس»، والقيم ذكر / أنثى */
+  const gi=EMP?EMP.cols.findIndex(c=>hn(c).includes('جنس')):-1,G=new Map();
+  if(gi>=0)EMP.rows.forEach(r=>{const v=hn(r.v[gi]),o=G.get(r.u)||{m:0,f:0};if(v.startsWith('ذكر'))o.m++;else if(v.startsWith('انث'))o.f++;G.set(r.u,o)});
+  const P=S.places.map(p=>{
+    const ls=p.lines.map(l=>({...l,path:[...l.path],id:null}));if(has)link(ls);
+    const subs=ls.map(l=>{const o=l.id&&G.get(l.id)||{m:0,f:0};return {name:nm(l),miss:has&&!l.id,cur:l.id&&hasC?S.cur[l.id]||0:0,m:o.m,f:o.f,st:cnt(l)}});
+    const sum=k=>subs.reduce((a,x)=>a+x[k],0),cur=sum('cur'),wn=need(p.hours);
+    return {title:p.title,notes:(p.notes||'').trim(),root:ls[0]?.path[0]||'',subs,cur,m:sum('m'),f:sum('f'),st:sum('st'),h:p.hours,wn,gap:hasC&&p.hours>0?gapOf(cur-wn):null};
+  });
+  return {P,hasC,hasG:hasC&&gi>=0};
+}
+/* أعمدة التقرير: «العدد الحالي» يتفرع إلى ذكر | أنثى | الإجمالي حين تتوفر بيانات الجنس */
+const RH=['الاحتياج حسب الهيكل','ساعات عبء العمل','الاحتياج وفق عبء العمل','حالة الاحتياج','ملاحظات'],RG=['ذكر','أنثى','الإجمالي'];
+/* تصفية التقرير: الجهة الرئيسية (الجذر في الهيكل) وحالة الاحتياج (الكل | عجز | فائض) */
+const RF={root:'',st:''};
+function renderReport(){
+  const A=reportData(),roots=[...new Set(A.P.map(p=>p.root).filter(Boolean))];
+  if(RF.root&&!roots.includes(RF.root))RF.root='';
+  const R={...A,P:A.P.filter(p=>(!RF.root||p.root===RF.root)&&(!RF.st||(RF.st==='gn'?p.gap?.n<0:p.gap?.n>0)))};
+  const page=pager(new Date()),c=v=>R.hasC?fmt(v):'—',g=x=>x?`<td class="${x.c}"><b>${x.v}</b> ${x.t}</td>`:'<td>—</td>';
+  const fl=[RF.root&&`الجهة الرئيسية: ${esc(RF.root)}`,RF.st&&`حالة الاحتياج: ${RF.st==='gn'?'عجز':'فائض'}`].filter(Boolean).join(' · ');
+  const cc=(o,miss)=>(R.hasG?[o.m,o.f,o.cur]:[o.cur]).map(v=>`<td>${miss?'—':c(v)}</td>`).join('');
+  const rows=R.P.map((p,i)=>`<tr class="rm"><td>${i+1}</td><td class="n"><b>${esc(p.title)}</b></td>${cc(p)}<td>${fmt(p.st)}</td><td>${p.h?fmt(p.h):'—'}</td><td>${p.h?fmt(p.wn):'—'}</td>${g(p.gap)}<td class="nt">${esc(p.notes).replace(/\n/g,'<br>')}</td></tr>`+
+    (RS?p.subs.map(x=>`<tr class="rs"><td></td><td class="n">${esc(x.name)}${x.miss?' <small>(غير موجودة في الهيكل الحالي)</small>':''}</td>${cc(x,x.miss)}<td>${fmt(x.st)}</td><td></td><td></td><td></td><td></td></tr>`).join(''):'')).join('');
+  const rs=R.hasG?' rowspan="2"':'';
+  const head=`<tr><th${rs} style="width:36px">م</th><th${rs}>الجهة</th><th${R.hasG?' colspan="3"':''}>العدد الحالي</th>${RH.map(h=>`<th${rs}>${h}</th>`).join('')}</tr>`+
+    (R.hasG?`<tr>${RG.map(h=>`<th>${h}</th>`).join('')}</tr>`:'');
+  $('#ov').innerHTML=`<div class="sheet-wrap"><div class="tools"><button class="p" id="pr">طباعة</button><button id="xl">تصدير Excel</button><button id="cl">إغلاق</button>
+    <label class="opt"><input type="checkbox" id="rsub"${RS?' checked':''}> إظهار الجهات التابعة</label>
+    <select class="opt" id="rroot" aria-label="الجهة الرئيسية"><option value="">كل الجهات الرئيسية</option>${roots.map(r=>`<option${r===RF.root?' selected':''}>${esc(r)}</option>`).join('')}</select>
+    <select class="opt" id="rst" aria-label="حالة الاحتياج"><option value="">العجز والفائض (الكل)</option><option value="gn"${RF.st==='gn'?' selected':''}>عجز</option><option value="gp"${RF.st==='gp'?' selected':''}>فائض</option></select></div>
+  ${page('docR',`
+    <div class="dtitle"><h3>تقرير الاحتياج</h3>${fl?`<div class="dsub">${fl}</div>`:''}</div>
+    ${R.hasC?'':'<p class="dnote">لم يُحمَّل ملف الهيكل والبيانات، فالعدد الحالي وحالة الاحتياج غير متاحة.</p>'}
+    <table class="t num"><thead>${head}</thead>
+      <tbody>${rows||`<tr><td colspan="${R.hasG?10:8}">لا توجد جهات مطابقة للتصفية</td></tr>`}</tbody></table>`)}</div>`;
+  setPaper(true);$('#ov').hidden=false;
+  $('#pr').onclick=()=>{const t=document.title;document.title=' ';window.print();document.title=t};
+  $('#cl').onclick=()=>{$('#ov').hidden=true};
+  $('#xl').onclick=()=>exportReport(R);
+  $('#rsub').onchange=e=>{RS=e.target.checked;renderReport()};
+  $('#rroot').onchange=e=>{RF.root=e.target.value;renderReport()};
+  $('#rst').onchange=e=>{RF.st=e.target.value;renderReport()};
+}
+$('#repBtn').addEventListener('click',()=>{renderReport();if(dirty||(!S.pid&&S.lines.length))toast('التسكين المفتوح غير محفوظ، فلا يظهر في التقرير')});
+/* تصدير التقرير: جدول التقرير وحده (دون ترويسة) منسّقًا كما يظهر. التنسيق يحتاج ExcelJS (SheetJS المجاني لا يكتب التنسيق)،
+   وتُحمَّل من cdnjs عند أول تصدير فقط */
+const EXJ='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',EXJ_SRI='sha512-dlPw+ytv/6JyepmelABrgeYgHI0O+frEwgfnPdXDTOIZz+eDgfW07QXG02/O8COfivBdGNINy+Vex+lYmJ5rxw==';
+let exjP=null;
+const loadExcelJS=()=>window.ExcelJS?Promise.resolve():exjP||(exjP=new Promise((ok,no)=>{const s=document.createElement('script');s.src=EXJ;s.integrity=EXJ_SRI;s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';s.onload=ok;s.onerror=()=>{exjP=null;s.remove();no()};document.head.appendChild(s)}));
+async function exportReport(R){
+  try{await loadExcelJS()}catch(e){return toast('تعذّر تحميل مكتبة Excel، تحقق من الاتصال بالإنترنت')}
+  const nc=R.hasG?3:1,N=2+nc+5,hr=R.hasG?2:1,c=v=>R.hasC?v:null;  /* N عدد الأعمدة: قبل الأخير حالة الاحتياج، والأخير الملاحظات */
+  const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet('التقرير',{views:[{rightToLeft:true,state:'frozen',ySplit:hr}]});
+  const font={name:'Sakkal Majalla',size:13},bd={style:'thin',color:{argb:'FF000000'}},border={top:bd,left:bd,bottom:bd,right:bd};
+  const fill=argb=>({type:'pattern',pattern:'solid',fgColor:{argb}});
+  /* الرأس كما في التقرير: صفّان مع تفصيل الجنس، وإلا صف واحد */
+  ws.addRow(['م','الجهة','العدد الحالي',...Array(nc-1).fill(null),...RH]);
+  if(R.hasG){ws.addRow([null,null,...RG,...RH.map(()=>null)]);
+    [1,2,...RH.map((_,k)=>3+nc+k)].forEach(k=>ws.mergeCells(1,k,2,k));ws.mergeCells(1,3,1,2+nc)}
+  const meta=new Map();  /* رقم الصف ← نوعه (جهة أساسية / تابعة) وحالته */
+  R.P.forEach((p,i)=>{
+    meta.set(ws.addRow([i+1,p.title,...(R.hasG?[p.m,p.f,p.cur]:[p.cur]).map(c),p.st,p.h||null,p.h?p.wn:null,p.gap?p.gap.n:null,p.notes||null]).number,{m:1,gap:p.gap});
+    if(RS)p.subs.forEach(x=>meta.set(ws.addRow([null,x.name+(x.miss?' (غير موجودة في الهيكل الحالي)':''),...(R.hasG?[x.m,x.f,x.cur]:[x.cur]).map(v=>x.miss?null:c(v)),x.st,null,null,null,null]).number,{m:0}));
+  });
+  ws.eachRow((row,n)=>{const t=meta.get(n);
+    for(let k=1;k<=N;k++){const cell=row.getCell(k);cell.border=border;cell.font={...font};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+      if(n<=hr){cell.fill=fill('FFE6E6E6');cell.font={...font,bold:true}}
+      else if(t.m)cell.fill=fill('FFF4F4F4')}
+    if(n<=hr)return;
+    row.getCell(2).alignment={horizontal:'right',vertical:'middle',wrapText:true,indent:t.m?0:2};
+    if(t.m)row.getCell(2).font={...font,bold:true};
+    row.getCell(N-3).numFmt='#,##0';row.getCell(N).alignment={horizontal:'right',vertical:'middle',wrapText:true};
+    /* الحالة رقم بتنسيق يُظهر «+n فائض» و«−n عجز» و«0 متوازن»، بلون الفائض والعجز نفسه في التقرير */
+    if(t.gap){const g=row.getCell(N-1);g.numFmt='"+"0" فائض";"−"0" عجز";0" متوازن"';g.font={...font,bold:true,color:{argb:t.gap.n>0?'FF1E7A3C':t.gap.n<0?'FFB42318':'FF000000'}}}
+  });
+  ws.columns.forEach((col,k)=>{col.width=[6,46,...Array(nc).fill(9),16,14,18,16,40][k]});
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([await wb.xlsx.writeBuffer()],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=`تقرير-الاحتياج-${safe(S.name||'المشروع')}.xlsx`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);
+}
+
+function exportXlsx(){
+  if(!window.XLSX)return toast('مكتبة Excel غير محمّلة، تحقق من الاتصال بالإنترنت');
+  const s=F.s,aoa=[['نموذج اعتماد الاحتياج الوظيفي'],[ORG],[GD],[DEPT],[],['التاريخ',hijri(F.date)],['الموافق',greg(F.date)],['الجهة الأساسية',F.main],[]];
+  const C=F.hasC;
+  /* رأس بصفّين: «الاحتياج حسب الهيكل» فوق المسميات والإجمالي، والأعمدة الأولى مدموجة رأسيًا */
+  const mg=[],h0=aoa.length+1,nc=C?3:2;
+  if(F.st.length){for(let c=0;c<nc;c++)mg.push({s:{r:h0,c},e:{r:h0+1,c}});mg.push({s:{r:h0,c:nc},e:{r:h0,c:nc+ROLES.length}})}
+  if(F.st.length)aoa.push(['الاحتياج وفق الهيكل التنظيمي'],['م','الجهة',...(C?['الموظفون الحاليون']:[]),'الاحتياج حسب الهيكل',...ROLES.map(()=>'')],['','',...(C?['']:[]),...ROLES.map(([,t])=>t),'الإجمالي'],...F.st.map((r,i)=>[i+1,r.name,...(C?[r.cur]:[]),...ROLES.map(([k])=>r[k]),r.total]),['','الإجمالي',...(C?[F.curN]:[]),...ROLES.map(([k])=>s[k]),s.n],[]);
+  if(F.h>0)aoa.push(['الاحتياج وفق عبء العمل السنوي'],['إجمالي ساعات عبء العمل السنوية','الساعات السنوية المتاحة للموظف','الناتج الحسابي','الاحتياج (بالتقريب للأعلى)'],[F.h,HOURS,Math.round(F.raw*100)/100,F.need],[]);
+  aoa.push(['الخلاصة']);if(F.st.length&&C)aoa.push(['العدد الواقعي (الموظفون الحاليون في الجهات المدرجة)',F.curN]);if(F.st.length)aoa.push(['الاحتياج وفق الهيكل التنظيمي',s.n]);if(F.h>0)aoa.push(['الاحتياج وفق عبء العمل السنوي',F.need]);
+  const gr=F.gap?aoa.push(['حالة الاحتياج (العدد الواقعي − الاحتياج وفق عبء العمل)',F.gap.n,F.gap.t])-1:-1;
+  if(F.notes)aoa.push([],['ملاحظات'],[F.notes]);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);if(gr>=0)ws[XLSX.utils.encode_cell({r:gr,c:1})].z='+0;-0;0';ws['!merges']=mg;ws['!cols']=[{wch:32},{wch:38},{wch:24},{wch:12},{wch:10},{wch:10},{wch:10}];
+  const wb=XLSX.utils.book_new();wb.Workbook={Views:[{RTL:true}]};XLSX.utils.book_append_sheet(wb,ws,'الاحتياج');
+  if(F.ec){const we=XLSX.utils.aoa_to_sheet([['م',...F.ec],...F.er.map((v,i)=>[i+1,...v.map(c=>/^\d+(\.\d+)?$/.test(c)?+c:c)])]);we['!cols']=[{wch:6},...F.ec.map(()=>({wch:24}))];XLSX.utils.book_append_sheet(wb,we,'بيانات الموظفين')}
+  XLSX.writeFile(wb,`اعتماد-الاحتياج-${F.main.replace(/[\\/:*?"<>|]/g,'').slice(0,50)}.xlsx`);
+}
+
+/* تحميل الهيكل */
+const AL={id:['معرفالوحدة','رمزالوحدة','رقمالوحدة','كودالوحدة','المعرف','الرمز','unitid','id','code'],name:['اسمالوحدة','الوحدةالتنظيمية','الوحدة','اسمالجهة','الجهة','name'],parentId:['معرفالوحدةالام','رمزالوحدةالام','الوحدةالام','التبعية','تتبع','parentid','parent']};
+const hn=s=>String(s).replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/[^\p{L}\p{N}]/gu,'').toLowerCase();
+const EAL={no:['رقمالموظف','الرقمالوظيفي'],unit:['جهةالعملالفعلية','جهةالعمل','الجهةالفعلية']};
+const un=s=>hn(String(s).replace(/ـ/g,''));
+/* هيكل بأعمدة: معرف الوحدة، اسم الوحدة، معرف الوحدة الأم */
+function colUnits(rows){
+  const hi=Math.max(0,rows.findIndex(r=>r.filter(v=>String(v).trim()).length>=2));const H=(rows[hi]||[]).map(hn);
+  const col=k=>{const A=AL[k].map(hn);let i=H.findIndex(h=>A.includes(h));if(i<0)i=H.findIndex(h=>h&&A.some(a=>a.length>3&&h.includes(a)));return i};
+  const ci=col('id'),cn=col('name');let cp=col('parentId');if(cp===ci||cp===cn)cp=-1;
+  if(ci<0||cn<0)return null;
+  return rows.slice(hi+1).map(r=>({id:String(r[ci]).trim(),name:String(r[cn]).trim(),parentId:cp<0?'':String(r[cp]).trim()})).filter(u=>u.id&&u.name);
+}
+/* هيكل مُزاح: موضع العمود = المستوى، والتبعية لأقرب جهة سابقة في مستوى أعلى */
+function indentUnits(rows){
+  const units=[],st=[];
+  rows.forEach(r=>{const d=r.findIndex(v=>String(v).trim());if(d<0)return;
+    const id=String(units.length+1);while(st.length&&st[st.length-1].d>=d)st.pop();
+    units.push({id,name:String(r[d]).trim(),parentId:st.length?st[st.length-1].id:''});st.push({d,id})});
+  return units;
+}
+/* ورقة الموظفين: تُعرف من عمودي رقم الموظف وجهة العمل. countStaff تعيد عدد الموظفين لكل جهة (cur) وصفوفهم (EMP) لكشف الأسماء وتفصيل الجنس، في الذاكرة فقط */
+function empCol(rows){
+  for(let i=0;i<Math.min(rows.length,10);i++){const H=rows[i].map(hn),f=k=>{const A=EAL[k].map(hn);return H.findIndex(h=>A.includes(h))};
+    const a=f('no'),b=f('unit');if(a>=0&&b>=0)return {hi:i,no:a,unit:b}}
+  return null;
+}
+function countStaff(rows,c,units){
+  const m=new Map();units.forEach(u=>{const k=un(u.name);if(!m.has(k))m.set(k,[]);m.get(k).push(u.id)});
+  const cur={},r={all:0,ok:0,miss:0,amb:0},keep=rows[c.hi].map((h,j)=>String(h).trim()?j:-1).filter(j=>j>=0),emp=[];
+  rows.slice(c.hi+1).forEach(x=>{const n=String(x[c.unit]).trim();if(!n||!String(x[c.no]).trim())return;r.all++;
+    const ids=m.get(un(n));if(!ids)r.miss++;else if(ids.length>1)r.amb++;else{cur[ids[0]]=(cur[ids[0]]||0)+1;r.ok++;emp.push({u:ids[0],v:keep.map(j=>String(x[j]??'').trim())})}});
+  return {cur,r,emp:{cols:keep.map(j=>String(rows[c.hi][j]).trim()),rows:emp}};
+}
+$('#file').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  if(!window.XLSX)return toast('مكتبة Excel غير محمّلة، تحقق من الاتصال بالإنترنت');
+  f.arrayBuffer().then(buf=>{const wb=XLSX.read(buf,{type:'array'});
+    const sh=wb.SheetNames.map(n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:false,blankrows:false})).map(rows=>({rows,ec:empCol(rows)}));
+    const st=sh.find(s=>!s.ec&&s.rows.length),es=sh.find(s=>s.ec);
+    if(!st)return toast('لم أجد ورقة الهيكل التنظيمي في الملف');
+    const units=colUnits(st.rows)||indentUnits(st.rows);
+    if(!units.length)return toast('الملف لا يحتوي جهات');
+    let cur=null,msg=`حُمّل الهيكل: ${fmt(units.length)} جهة`;EMP=null;
+    if(es){const c=countStaff(es.rows,es.ec,units);cur=c.cur;EMP=c.emp;
+      msg+=` · الموظفون: ${fmt(c.r.ok)} من ${fmt(c.r.all)}`+(c.r.miss?` — ${fmt(c.r.miss)} جهتهم غير موجودة في الهيكل`:'')+(c.r.amb?` — ${fmt(c.r.amb)} جهتهم مكررة الاسم`:'')}
+    /* جهات المشروع المفتوح تبقى، وتُربط بالهيكل الجديد فتتحدّث أعداد الموظفين الفعلية تلقائيًا */
+    S.units=units;S.cur=cur;index();const miss=resolve();render();
+    toast(msg+(S.lines.length?` · التسكين المفتوح: ${fmt(S.lines.length-miss)} جهة مرتبطة`+(miss?`، ${fmt(miss)} غير موجودة في الهيكل`:''):''));
+  }).catch(()=>toast('تعذرت قراءة الملف'));
+});
+
+let tT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),3500)}
+index();render();
+</script>
+</body>
+</html>
