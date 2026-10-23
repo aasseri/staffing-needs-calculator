@@ -62,6 +62,9 @@ button,input{font:inherit;color:inherit}
 .tg:hover{background:var(--navy-soft);color:var(--navy)}
 .tg .ch{display:inline-block;font-size:20px;line-height:1;color:var(--navy);transition:transform .15s}
 .ur.open .tg .ch{transform:rotate(-90deg)}
+.u.pl{background:var(--navy-soft)}
+.u .badge.sv{background:var(--navy);color:#fff}
+.tg .rcn{background:var(--navy);color:#fff;border-radius:999px;padding:0 7px;font-size:11px;font-weight:700;white-space:nowrap}
 .u .badge{background:var(--gold);color:#1c1406;font-weight:700;font-size:12px;border-radius:999px;padding:0 9px;white-space:nowrap}
 .u.in{background:var(--gold-soft)}
 .none{color:var(--muted);text-align:center;padding:30px 10px}
@@ -310,11 +313,15 @@ function renderTree(){
   const q=$('#q').value.trim();
   /* البحث يعرض كل النتائج دون طي؛ وبدونه تظهر الجهات الرئيسية، وتحت المفتوحة منها جهاتها */
   const ids=q?order.filter(id=>byId.get(id).name.includes(q)):order.filter(id=>!depth.get(id)||open.has(rootOf.get(id)));
-  $('#tree').innerHTML=ids.length?ids.map(id=>{const u=byId.get(id),d=q?0:depth.get(id),l=line(id);
-    const b=`<button class="u${l?' in':''}" data-id="${esc(id)}" data-d="${d}" style="--d:${d}"><span class="dot"></span><span class="nm">${esc(u.name)}${q&&u.parentId?`<span class="pth">${esc(parentName(id))}</span>`:''}</span>${l?`<span class="badge num">${cnt(l)?fmt(cnt(l)):'✓'}</span>`:''}</button>`;
+  /* عدد الجهات المُسكّنة (المحفوظة والمفتوحة) تحت كل جهة رئيسية، ليظهر والشجرة مطوية */
+  const rc=new Map();[...PL.keys(),...S.lines.filter(l=>l.id).map(l=>l.id)].forEach(id=>{const r=rootOf.get(id);rc.set(r,(rc.get(r)||0)+1)});
+  $('#tree').innerHTML=ids.length?ids.map(id=>{const u=byId.get(id),d=q?0:depth.get(id),l=line(id),sv=!l&&PL.get(id);
+    /* الرقم الذهبي: جهة في التسكين المفتوح. الرقم الكحلي: جهة في تسكين محفوظ (الضغط عليها يفتح تسكينها) */
+    const badge=l?`<span class="badge num">${cnt(l)?fmt(cnt(l)):'✓'}</span>`:sv?`<span class="badge sv num" title="ضمن تسكين «${esc(sv.p.title)}»">${sv.n?fmt(sv.n):'✓'}</span>`:'';
+    const b=`<button class="u${l?' in':sv?' pl':''}" data-id="${esc(id)}" data-d="${d}" style="--d:${d}"><span class="dot"></span><span class="nm">${esc(u.name)}${q&&u.parentId?`<span class="pth">${esc(parentName(id))}</span>`:''}</span>${badge}</button>`;
     if(q||d||!kids.has(id))return b;
-    const o=open.has(id);
-    return `<div class="ur${o?' open':''}"><button class="tg" data-t="${esc(id)}" aria-expanded="${o}" aria-label="${o?'طي':'عرض'} جهات ${esc(u.name)}"><span class="ch">‹</span><span class="num">${fmt(size.get(id)-1)}</span></button>${b}</div>`}).join(''):'<p class="none">لا توجد جهة بهذا الاسم.</p>';
+    const o=open.has(id),n=rc.get(id);
+    return `<div class="ur${o?' open':''}"><button class="tg" data-t="${esc(id)}" aria-expanded="${o}" aria-label="${o?'طي':'عرض'} جهات ${esc(u.name)}"><span class="ch">‹</span><span class="num">${fmt(size.get(id)-1)}</span>${n?`<span class="rcn num" title="جهات مُسكّنة">${fmt(n)} مُسكّنة</span>`:''}</button>${b}</div>`}).join(''):'<p class="none">لا توجد جهة بهذا الاسم.</p>';
 }
 function renderLines(flashK){
   const L=ordered();
@@ -341,7 +348,15 @@ function renderPlaces(){
     S.places.map(p=>`<option value="${p.pid}"${p.pid===S.pid?' selected':''}>${esc(p.title)} — ${fmt(p.lines.length)} جهة${p.hours?` · ${fmt(p.hours)} ساعة`:''}</option>`).join('');
   $('#repBtn').disabled=!S.places.length;
 }
-const render=f=>{renderTree();renderLines(f);renderPlaces()};
+/* جهات التسكينات المحفوظة على الهيكل الحالي: id ← {p: التسكين, n: مجموع الاحتياج}. يُستثنى التسكين المفتوح (جهاته في منطقة العمل).
+   يُحسب في render() فقط (عند تغيّر الهيكل أو المشروع)، لا مع كل حرف في البحث */
+let PL=new Map();
+function placedMap(){
+  PL=new Map();if(!S.units.length)return;
+  S.places.forEach(p=>{if(p.pid===S.pid)return;const ls=p.lines.map(l=>({...l,path:[...l.path],id:null}));link(ls);
+    ls.forEach(l=>{if(l.id&&!PL.has(l.id))PL.set(l.id,{p,n:cnt(l)})})});
+}
+const render=f=>{placedMap();renderTree();renderLines(f);renderPlaces()};
 const touch=()=>{dirty=true};
 
 function addUnit(id){
@@ -359,6 +374,10 @@ $('#ask').addEventListener('cancel',()=>answer(false));
 $('#tree').addEventListener('click',e=>{const t=e.target.closest('.tg');
   if(t){const r=t.dataset.t;open.has(r)?open.delete(r):open.add(r);return renderTree()}
   const b=e.target.closest('.u');if(!b)return;const id=b.dataset.id;
+  /* جهة في تسكين محفوظ: يُفتح تسكينها مباشرة دون اختياره من القائمة المنسدلة */
+  const sv=!line(id)&&PL.get(id);
+  if(sv)return guard(()=>{const miss=setWork(sv.p);toast(`فُتح تسكين «${sv.p.title}»`+(miss?` — ${fmt(miss)} جهة غير موجودة في الهيكل الحالي`:''));
+    const l=line(id);if(l){renderLines(l.k);document.getElementById('c-'+l.k)?.scrollIntoView({block:'nearest',behavior:'smooth'})}});
   if(line(id)||!S.cur||S.cur[id])return addUnit(id);
   ask(`«${byId.get(id).name}» لا يوجد بها موظفون حاليون. هل تريد إدراجها ضمن الاحتياج؟`,()=>addUnit(id))});
 $('#lines').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const l=lineK(b.dataset.k),a=b.dataset.a,r=b.dataset.r;
